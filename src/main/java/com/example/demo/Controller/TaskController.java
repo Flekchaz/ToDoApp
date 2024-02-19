@@ -40,7 +40,7 @@ public class TaskController {
         } catch (TaskServiceImpl.TaskNotFound e) {
             return ResponseEntity.notFound().build();
         } catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
     }
@@ -55,7 +55,7 @@ public class TaskController {
         }
         catch (Exception e) {
             return ResponseEntity.
-                    status(HttpStatus.INTERNAL_SERVER_ERROR).
+                    status(HttpStatus.BAD_REQUEST).
                     body("An error has occurred during deleting the task");
         }
     }

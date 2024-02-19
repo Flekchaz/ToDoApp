@@ -17,22 +17,45 @@ import java.util.stream.Collectors;
 public class TaskServiceImpl implements TaskService{
     private final TaskRepo taskRepo;
 
+
+    public class TaskRetrievalException extends RuntimeException{
+        public TaskRetrievalException(String message){
+            super(message);
+        }
+    }
     public class TaskNotFound extends RuntimeException{
         public TaskNotFound(String message){
             super(message);
         }
     }
 
+    public class TaskUpdateException extends RuntimeException{
+        public TaskUpdateException(String message){
+            super(message);
+        }
+    }
+    public class TaskDeleteException extends RuntimeException{
+        public TaskDeleteException(String message){
+            super(message);
+        }
+    }
     @Override
-    public List<TaskResponseDto> getAllTasks() {
-        return taskRepo.findAll().stream()
-                .map(MappingProfile::mapToDto)
-                .collect(Collectors.toList());
+    public List<TaskResponseDto> getAllTasks() throws TaskRetrievalException {
+        try {
+            return taskRepo.findAll().stream()
+                    .map(MappingProfile::mapToDto)
+                    .collect(Collectors.toList());
+        } catch (TaskRetrievalException e) {
+            throw new TaskRetrievalException("Error retrieving tasks from the repository");
+        }
     }
 
     @Override
-    public TaskResponseDto createTask(TaskRequestDto taskDto) {
+    public TaskResponseDto createTask(TaskRequestDto taskDto) throws TaskNotFound {
         var task = MappingProfile.mapToEntity(taskDto);
+        if (task == null ){
+            throw new TaskNotFound("Task not created");
+        }
         return MappingProfile.mapToDto(taskRepo.save(task));
     }
 
@@ -43,8 +66,8 @@ public class TaskServiceImpl implements TaskService{
     }
 
     @Override
-    public TaskResponseDto updateTask(Long id, TaskRequestDto taskDto) throws TaskNotFound {
-        var task = taskRepo.findById(id).orElseThrow(() -> new TaskNotFound("Task not found"));
+    public TaskResponseDto updateTask(Long id, TaskRequestDto taskDto) throws TaskUpdateException {
+        var task = taskRepo.findById(id).orElseThrow(() -> new TaskUpdateException("Error while updating the task"));
         task.setTitle(taskDto.getTitle());
         task.setDescription(taskDto.getDescription());
         task.setId(taskDto.getId());
@@ -54,8 +77,8 @@ public class TaskServiceImpl implements TaskService{
     }
 
     @Override
-    public void deleteTask(Long id) throws TaskNotFound {
-        var task = taskRepo.findById(id).orElseThrow(() -> new TaskNotFound("Task not found"));
+    public void deleteTask(Long id) throws TaskDeleteException {
+        var task = taskRepo.findById(id).orElseThrow(() -> new TaskDeleteException("Error while deleting the task"));
         taskRepo.delete(task);
     }
 }

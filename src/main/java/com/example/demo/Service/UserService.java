@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.SplittableRandom;
 
 @Service
@@ -21,6 +22,12 @@ import java.util.SplittableRandom;
 public class UserService {
     private final UserRepo userRepo;
 
+
+    public class UserRetrievalException extends RuntimeException {
+        public UserRetrievalException(String message){
+            super(message);
+        }
+    }
     public class UserNotFoundException extends RuntimeException {
         public UserNotFoundException(String message){
             super(message);
@@ -33,15 +40,38 @@ public class UserService {
             super(message);
         }
     }
-    public List<UserResponseDto> getAllUsers() {
-        return userRepo.findAll()
-                .stream()
-                .map(MappingProfile::mapToUserDto).toList();
+
+    public class UserUpdateException extends RuntimeException{
+        public UserUpdateException(String message){
+            super(message);
+        }
     }
 
-    public UserResponseDto createUser(UserRequestDto userDto) {
+    public class UserUpdateExistingUserException extends RuntimeException{
+        public UserUpdateExistingUserException(String message){
+            super(message);
+        }
+    }
+
+    public class UserDeleteException extends RuntimeException {
+        public UserDeleteException(String message){
+            super(message);
+        }
+    }
+    public List<UserResponseDto> getAllUsers() throws UserRetrievalException {
+
+        try {
+            return userRepo.findAll()
+                    .stream()
+                    .map(MappingProfile::mapToUserDto).toList();
+        } catch (UserRetrievalException e) {
+            throw new UserRetrievalException("Error retrieving users from the repository");
+        }
+    }
+
+    public UserResponseDto createUser(UserRequestDto userDto) throws DataNotValidException {
         if (!userDto.isValid()){
-            throw new InvalidRequestStateException("Invalid email");
+            throw new DataNotValidException("Invalid email");
         }
 
         if(containsSpecialChar(userDto.getFirstName()) || containsSpecialChar(userDto.getLastName())){
@@ -59,7 +89,8 @@ public class UserService {
             public String fullName = user.getLastName().toUpperCase() + ", " + user.getFirstName();
             public String email = user.getEmail();
 
-            public List<Object> tasks = Collections.singletonList(user.getTasks().stream().map(task -> new Object() {
+            public List<Object> tasks = Collections.singletonList(user.getTasks().
+                    stream().map(task -> new Object() {
                 public Long id = task.getId();
                 public String title = task.getTitle();
                 public String description = task.getDescription();
@@ -76,15 +107,39 @@ public class UserService {
         return MappingProfile.mapToUserDto(userRepo.save(user));
     }
 
-    public UserResponseDto updateUser(Long id, UserRequestDto userDto) throws Exception {
-        var user = userRepo.findById(id).orElseThrow(() -> new Exception("User not found"));
+
+    public UserResponseDto updateUser(Long id, UserRequestDto userDto) throws UserUpdateException {
+        var user = userRepo.findById(id).orElseThrow(() -> new UserUpdateException("An error has occurred while updating user"));
         user.setFirstName(userDto.getFirstName());
         user.setLastName(userDto.getLastName());
         user.setEmail(userDto.getEmail());
+
         return MappingProfile.mapToUserDto(userRepo.save(user));
     }
+    public UserResponseDto updateExistingUser(Long id, UserRequestDto userDto) throws UserUpdateExistingUserException {
+        var user = userRepo.findById(id).orElseThrow(() -> new UserUpdateExistingUserException("An error has occurred while updating user"));
+        //user.setFirstName(userDto.getFirstName());
+        //user.setLastName(userDto.getLastName());
+        //user.setEmail(userDto.getEmail());
+        if (isChanged(user, userDto)){
 
-    public void deleteUser(Long id) throws UserNotFoundException {
+
+        if (userDto.getFirstName()!=null){
+            user.setFirstName(userDto.getFirstName());
+        }
+
+        if (userDto.getLastName()!=null){
+            user.setLastName(userDto.getLastName());
+        }
+        if (userDto.getEmail()!=null){
+            user.setEmail(userDto.getEmail());
+        }
+        return MappingProfile.mapToUserDto(userRepo.save(user));
+    }
+        else {
+            return MappingProfile.mapToUserDto(user);
+    }  }
+    public void deleteUser(Long id) throws UserDeleteException {
        /*try {
             Object userObject = getUserById(id);
 
@@ -98,8 +153,16 @@ public class UserService {
             throw new RuntimeException(e);
         }*/
 
-        var user = userRepo.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"+id));
+        var user = userRepo.findById(id).orElseThrow(() ->
+                new UserDeleteException("An error has occurred while deleting user" + +id));
         userRepo.delete(user);
+    }
+
+    private boolean isChanged(User existingUser,UserRequestDto userDto){
+        return !Objects.equals(existingUser.getFirstName(),userDto.getFirstName())
+                || Objects.equals(existingUser.getLastName(), userDto.getLastName())
+                || Objects.equals(existingUser.getEmail(), userDto.getEmail());
+
     }
 
     private boolean containsSpecialChar(String input){

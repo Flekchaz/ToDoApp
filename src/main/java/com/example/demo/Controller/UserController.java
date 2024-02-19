@@ -37,8 +37,14 @@ public class UserController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> createUser(@Valid @RequestBody UserRequestDto userDto) {
-        return new ResponseEntity<>(userService.createUser(userDto), HttpStatus.CREATED);
+    public ResponseEntity<?> createUser(@RequestBody UserRequestDto userDto) {
+        try {
+            return new ResponseEntity<>(userService.createUser(userDto), HttpStatus.CREATED);
+        } catch (UserService.DataNotValidException e) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body("Can't create a user");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Bad request");
+        }
     }
 
     @PutMapping("/update/{userId}")
@@ -48,23 +54,23 @@ public class UserController {
         try {
             UserResponseDto userUpdated = userService.updateUser(userId, userDto);
             return ResponseEntity.ok(userUpdated);
-        } catch (UserService.UserNotFoundException e) {
-            return  ResponseEntity.notFound().build();
+        } catch (UserService.UserUpdateException e) {
+            return  ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found for the given ID");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad request");
         }
     }
 
     @PatchMapping("/updateExisting/{userId}")
-    public ResponseEntity<?> updateExisting(@PathVariable Long userId, @RequestBody UserRequestDto userRequestDto){
+    public ResponseEntity<?> updateExistingUser(@PathVariable Long userId, @RequestBody UserRequestDto userRequestDto){
         try {
-            UserResponseDto userUpdated = userService.updateUser(userId, userRequestDto);
+            UserResponseDto userUpdated = userService.updateExistingUser(userId, userRequestDto);
             return ResponseEntity.ok(userUpdated);
-        } catch (UserService.UserNotFoundException e) {
+        } catch (UserService.UserUpdateExistingUserException e) {
 
             return ResponseEntity.notFound().build();
         } catch (Exception  e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
     }
@@ -74,7 +80,7 @@ public class UserController {
         try {
             userService.deleteUser(userId);
             return ResponseEntity.noContent().build();
-        } catch (UserService.UserNotFoundException e) {
+        } catch (UserService.UserDeleteException e) {
             return ResponseEntity.notFound().build();
 
         }
